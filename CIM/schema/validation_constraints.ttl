@@ -1,0 +1,15 @@
+@prefix brick: <https://brickschema.org/schema/Brick#> .
+@prefix harmo: <https://cim.harmonise-horizon.eu/ns#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+
+
+harmo:SensorServiceCardinalityShape
+    a sh:NodeShape ;
+    sh:targetClass brick:Point ;
+    sh:property [
+        sh:path harmo:service ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:severity sh:Warning ;
+        sh:message "A brick:Point must have exactly ONE harmo:service relationship." ;
+    ] .

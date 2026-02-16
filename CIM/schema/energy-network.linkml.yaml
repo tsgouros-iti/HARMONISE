@@ -1,0 +1,448 @@
+id: https://example.com/linkml/energy-network
+name: energy-network
+description: Minimal schema for an energy network pilot (Brick + ASHRAE 223 alignment)
+
+prefixes:
+  base: https://w3id.org/linkml/
+  linkml: https://w3id.org/linkml/
+  rdf: http://www.w3.org/1999/02/22-rdf-syntax-ns#
+  rdfs: http://www.w3.org/2000/01/rdf-schema#
+  xsd: http://www.w3.org/2001/XMLSchema#
+  brick: https://brickschema.org/schema/Brick#
+  qudtqk: http://qudt.org/vocab/quantitykind/
+  as223: http://data.ashrae.org/standard223#
+  rec: https://w3id.org/rec#
+  tag: https://brickschema.org/schema/BrickTag#
+  unit: http://qudt.org/vocab/unit/
+  harmo: https://cim.harmonise-horizon.eu/ns#
+
+default_prefix: harmo
+default_range: string
+
+imports:
+  - linkml:types
+
+annotations:
+  version: "0.2.0"
+
+slots:
+  id:
+    identifier: true
+    range: string
+
+  name:
+    range: string
+    slot_uri: rdfs:label
+
+  graph:
+    range: string
+
+  services:
+    range: Service
+    description: Service related to a sensor
+    slot_uri: harmo:hasService
+    multivalued: true
+    inlined_as_list: true
+
+  channel:
+    range: ChannelType
+    slot_uri: harmo:hasChannelType
+
+  observedAt:
+    range: datetime
+    description: Timestamp when a measurement was observed
+
+  readAt:
+    range: datetime
+    description: Timestamp when a measurement was uploaded
+
+  externalId:
+    range: string
+    description: Id of any external device which produced the datapoints
+
+  metadata:
+    range: Any
+    description: Metadata related to a measurement
+
+  asset_type:
+    range: AssetType
+    slot_uri: rdf:type
+    description: e.g., Meter, PV, Battery, Inverter…
+
+  sensor_type:
+    range: SensorType
+    slot_uri: rdf:type
+    description: e.g., physical, forecast, planner
+
+  observable_property_type:
+    range: ObservablePropertyType
+    slot_uri: rdf:type
+    description: e.g., power, energy_import, energy_export
+
+  static_property_type:
+    range: StaticPropertyType
+    slot_uri: rdf:type
+    description: e.g., nominal power, maximum output power
+
+  mqtt_topic:
+    range: string
+    description: MQTT topic that publishes this measurement
+
+  assets:
+    slot_uri: rec:isLocationOf
+    range: Asset
+    multivalued: true
+    inlined_as_list: true
+
+  buildings:
+    slot_uri: rec:isLocationOf
+    range: Building
+    multivalued: true
+    inlined_as_list: true
+
+  static_properties:
+    slot_uri: brick:hasQuantity
+    range: StaticProperty
+    multivalued: true
+    inlined_as_list: true
+
+  observed_properties:
+    slot_uri: brick:hasQuantity
+    range: ObservableProperty
+    multivalued: true
+    inlined_as_list: true
+
+  unit:
+    range: Unit
+    slot_uri: brick:hasUnit
+    description: the UoM of a property
+
+  sensors:
+    slot_uri: brick:hasPoint
+    range: Sensor
+    multivalued: true
+    inlined_as_list: true
+    description: sources of this property (physical, forecast, etc.)
+
+  service:
+    range: Service
+
+  subscribers:
+    range: Service
+    description: Service which is subscribed in order to read mqtt messages notified by a sensor scorpio subscription 
+    slot_uri: harmo:hasSubscribedService
+    multivalued: true
+
+  points:
+    range: Measurement
+    multivalued: true
+    inlined_as_list: true
+
+  quantity_value:
+    description: is the measurement of an observable property of a particular object, event, or physical system.
+    slot_uri: qudt:quantityValue
+    range: float
+
+  sites:
+    slot_uri: rec:hasPart
+    range: Site
+    multivalued: true
+    inlined_as_list: true
+
+  tags:
+    slot_uri: brick:hasTag
+    range: Tags
+    multivalued: true
+
+  zones:
+    slot_uri: rec:hasPart
+    multivalued: true
+    inlined_as_list: true
+    range: Zone
+
+classes:
+  Any:
+    class_uri: linkml:Any
+
+  Measurable:
+    mixin: true
+    slots:
+      - observed_properties
+
+  Entity:
+    abstract: true
+    description: Base class for all entities
+    slots:
+      - id
+      - name
+
+  Site:
+    is_a: Entity
+    description: A site
+    class_uri: rec:Site
+    mixins:
+      - Measurable
+    slots:
+      - graph
+      - zones
+      - buildings
+      - assets
+      - services
+
+  Zone:
+    is_a: Entity
+    description: A zone within a site
+    class_uri: rec:Zone
+    mixins:
+      - Measurable
+    slots:
+      - assets
+      - buildings
+
+  Building:
+    is_a: Entity
+    description: A building within a site or zone
+    class_uri: rec:Building
+    mixins:
+      - Measurable
+    slots:
+      - assets
+
+  Asset:
+    is_a: Entity
+    description: Generic asset/equipment (meter, PV, battery, HVAC, etc.)
+    class_uri: brick:Equipment
+    mixins:
+      - Measurable
+    slots:
+      - asset_type
+      - static_properties
+
+  ObservableProperty:
+    is_a: Entity
+    description: A measurable quantity aligned to QUDT Quantity Kinds (qudtqk)
+    class_uri: as223:ObservableProperty
+    slots:
+      - observable_property_type
+      - sensors
+      - unit
+      - tags
+
+  StaticProperty:
+    is_a: Entity
+    description: A static property of an asset
+    class_uri: as223:QuantifiableProperty
+    slots:
+      - static_property_type
+      - quantity_value
+      - unit
+
+  Sensor:
+    is_a: Entity
+    description: A physical or virtual sensor which produces measurements
+    class_uri: brick:Point
+    slots:
+      - sensor_type
+      - mqtt_topic
+      - points
+      - service
+      - subscribers
+
+  Measurement:
+    is_a: Entity
+    description: A datapoint (timestamp + quantity_value)
+    slots:
+      - observedAt
+      - quantity_value
+      - readAt
+      - externalId
+      - metadata
+
+  System:
+    description: Root container for grouping sites
+    tree_root: true
+    slots:
+      - sites
+
+  Service:
+    is_a: Entity
+    slots:
+      - channel
+
+enums:
+  AssetType:
+    permissible_values:
+      BESS:
+        meaning: brick:Battery
+      EVCS:
+        meaning: brick:EV_Charging_Hub
+      E_BOILER:
+        meaning: brick:Electric_Boiler
+      GAS_BOILER:
+        meaning: brick:Natural_Gas_Boiler
+      D_BOILER:
+        meaning: harmo:Diesel_Boiler
+      CHILLER:
+        meaning: brick:Chiller
+      FCU:
+        meaning: brick:Fan_Coil_Unit
+      HEAT_PUMP:
+        meaning: brick:Packaged_Heat_Pump
+      METER:
+        meaning: brick:Electrical_Meter
+      PV:
+        meaning: brick:PV_Panel
+      SERVICE:
+        meaning: brick:Collection
+      SPLIT:
+        meaning: brick:HVAC_Equipment
+      TRANSFORMER:
+        meaning: brick:Transformer
+
+  StaticPropertyType:
+    permissible_values:
+      CAPACITY:
+        meaning: qudtqk:Capacity
+      COOLING_CAPACITY:
+        meaning: harmo:CoolingCapacity
+      COOLING_EFFICIENCY:
+        meaning: qudtqk:CoefficientOfPerformance
+      ETA_IN:
+        meaning: qudtqk:EnergyConversionEfficiency
+      ETA_OUT:
+        meaning: qudtqk:EnergyConversionEfficiency
+      GEO_LOC:
+        meaning: qudtqk:CartesianCoordinates
+      HEATING_CAPACITY:
+        meaning: harmo:HeatingCapacity
+      HEATING_EFFICIENCY:
+        meaning: qudtqk:CoefficientOfPerformance
+      MAX_CHARGE:
+        meaning: qudtqk:ActivePower
+      MAX_DISCHARGE:
+        meaning: qudtqk:ActivePower
+      MAX_OUTPUT_POWER:
+        meaning: qudtqk:ActivePower
+      MIN_OUTPUT_POWER:
+        meaning: qudtqk:ActivePower
+      MAX_SOC:
+        meaning: qudtqk:StateOfCharge
+      MIN_SOC:
+        meaning: qudtqk:StateOfCharge
+      NOMINAL_POWER:
+        meaning: qudtqk:ActivePower      
+      SELF_POWER:
+        meaning: qudtqk:ActivePower
+
+  ObservablePropertyType:
+    permissible_values:
+      ACTIVE_POWER:
+        meaning: qudtqk:ActivePower
+      EXPORT_ENERGY:
+        meaning: qudtqk:ActiveEnergy
+      IMPORT_ENERGY:
+        meaning: qudtqk:ActiveEnergy
+      EXCHANGED_ENERGY:
+        meaning: qudtqk:ActiveEnergy
+      GENERATED_ACTIVE_POWER:
+        meaning: qudtqk:ActivePower
+      GENERATED_ENERGY:
+        meaning: qudtqk:ActiveEnergy
+      CONSUMED_DIESEL:
+        meaning: qudtqk:Volume
+      CONSUMED_ENERGY:
+        meaning: qudtqk:ActiveEnergy
+      CONSUMED_GAS:
+        meaning: qudtqk:Volume
+      CURRENT:
+        meaning: qudtqk:ElectricCurrent
+      FAN_SPEED:
+        meaning: qudtqk:RotationalSpeed
+      GHI:
+        meaning: qudtqk:Irradiance
+      HUMIDITY:
+        meaning: qudtqk:RelativeHumidity
+      ON_OFF:
+        meaning: qudtqk:State
+      OPERATING_MODE:
+        meaning: qudtqk:Dimensionless
+      RELATIVE_HUMIDITY:
+        meaning: qudtqk:RelativeHumidity
+      SOLARRADIANCE:
+        meaning: qudtqk:Irradiance
+      SOC:
+        meaning: qudtqk:StateOfCharge
+      SOH:
+        meaning: qudtqk:DimensionlessRatio
+      TEMPERATURE:
+        meaning: qudtqk:CelsiusTemperature
+      THERMAL_POWER:
+        meaning: qudtqk:Power
+      VOLTAGE:
+        meaning: qudtqk:Voltage
+      ON_OFF_STATUS:
+        meaning: qudtqk:Status
+      SOLAR_RADIATION:
+        meaning: qudtqk:Radiance
+      DIRECT_NORMAL_IRRADIANCE:
+        meaning: qudtqk:Irradiance
+      GLOBAL_HORIZONTAL_IRRADIANCE:
+        meaning: qudtqk:Irradiance
+      DIFFUSE_HORIZONTAL_IRRADIANCE:
+        meaning: qudtqk:Irradiance
+      CLOUD_COVERAGE:
+        meaning: qudtqk:DimensionlessRatio
+      WIND_SPEED:
+        meaning: qudtqk:Speed
+      IMPORTED_ACTIVE_POWER:
+        meaning: qudtqk:ActivePower
+      EXPORTED_ACTIVE_POWER:
+        meaning: qudtqk:ActivePower
+
+  SensorType:
+    permissible_values:
+      MEASURED:
+        meaning: brick:Sensor
+      STATUS:
+        meaning: brick:Status
+      FORECAST:
+        meaning: harmo:Forecast
+      SETPOINT:
+        meaning: brick:Setpoint
+      COMMAND:
+        meaning: brick:Command
+
+  Unit:
+    permissible_values:
+      kW:
+        meaning: unit:KiloW
+      kWh:
+        meaning: unit:KiloW-HR
+      V:
+        meaning: unit:Voltage
+      A:
+        meaning: unit:A
+      C:
+        meaning: unit:DEG_C
+      \%:
+        meaning: unit:PERCENT
+      W/m2:
+        meaning: unit:W-PER-M2
+      rad/s:
+        meaning: unit:RAD-PER-SEC
+      m3:
+        meaning: unit:M3
+
+  ChannelType:
+    permissible_values:
+      MQTT:
+        meaning: harmo:mqtt
+      NGSI-LD:
+        meaning: harmo:ngsi-ld
+
+  Tags:
+    permissible_values:
+      WEATHER:
+        meaning: tag:Weather
+      GENERATED:
+        meaning: tag:Generated

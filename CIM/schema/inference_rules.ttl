@@ -1,0 +1,464 @@
+@prefix as223: <http://data.ashrae.org/standard223#> .
+@prefix brick: <https://brickschema.org/schema/Brick#> .
+@prefix bsh: <https://brickschema.org/schema/BrickShape#> .
+@prefix tag: <https://brickschema.org/schema/BrickTag#> .
+@prefix harmo: <https://cim.harmonise-horizon.eu/ns#> .
+@prefix qudtqk: <http://qudt.org/vocab/quantitykind/> .
+@prefix rec: <https://w3id.org/rec#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+
+harmo:HarmoPrefixes a sh:PrefixDeclaration ;
+    sh:declare [
+            sh:prefix "harmo" ;
+            sh:namespace "https://cim.harmonise-horizon.eu/ns#"^^xsd:anyURI ;
+        ] ;
+    sh:declare [
+            sh:prefix "unit" ;
+            sh:namespace "http://qudt.org/vocab/unit/"^^xsd:anyURI ;
+        ] ;
+    sh:declare [
+            sh:prefix "qudtqk" ;
+            sh:namespace "http://qudt.org/vocab/quantitykind/"^^xsd:anyURI ;
+        ] ;
+    sh:declare [ 
+            sh:prefix "rec" ;
+            sh:namespace "https://w3id.org/rec#"^^xsd:anyURI ;
+        ] ;
+    sh:declare [ 
+            sh:prefix "s223" ;
+            sh:namespace "http://data.ashrae.org/standard223#"^^xsd:anyURI ;
+        ] ;
+    sh:declare [ 
+            sh:prefix "tag" ;
+            sh:namespace "https://brickschema.org/schema/BrickTag#"^^xsd:anyURI ;
+        ] ;
+    sh:declare [ 
+            sh:prefix "bsh" ;
+            sh:namespace "https://brickschema.org/schema/BrickShape#"^^xsd:anyURI ;
+        ] ;
+    sh:declare [
+            sh:prefix "brick" ;
+            sh:namespace "https://brickschema.org/schema/Brick#"^^xsd:anyURI ;
+        ] .
+
+harmo:Forecast a owl:Class ,
+    sh:NodeShape ;
+    rdfs:subClassOf brick:Sensor ;
+    sh:rule [ a sh:TripleRule ;
+            sh:prefixes harmo:HarmoPrefixes ;
+            sh:object tag:Forecast ;
+            sh:predicate brick:hasTag ;
+            sh:subject sh:this ] ;
+    brick:hasAssociatedTag tag:Forecast ;
+    brick:hasTag tag:Point,
+        tag:Sensor .
+
+tag:Forecast a brick:Tag ;
+    rdfs:label "Forecast"@en ;
+    brick:isAssociatedWith harmo:Forecast .
+
+qudtqk:CelsiusTemperature a owl:Class ,
+    sh:NodeShape ;
+    sh:rule [ a sh:TripleRule ;
+        sh:prefixes harmo:HarmoPrefixes ;
+        sh:object tag:Weather ;
+        sh:predicate brick:hasTag ;
+        sh:subject sh:this ] ;
+    brick:hasAssociatedTag tag:Weather .
+
+tag:Weather a brick:Tag ;
+    rdfs:label "Weather"@en ;
+    brick:isAssociatedWith qudtqk:CelsiusTemperature .
+
+harmo:SensorTopicRule
+    a sh:NodeShape ;
+    sh:targetClass brick:Point ;
+    sh:rule [
+        sh:prefixes harmo:HarmoPrefixes ;
+        a sh:SPARQLRule ;
+        sh:construct """
+            CONSTRUCT {
+                ?this harmo:hasMQTTtopic ?topic .
+            }
+            WHERE {
+                {
+                    ?this harmo:service ?service .
+                }
+                UNION
+                {
+                    ?this harmo:hasSubscribedService ?service .
+                }
+
+                ?service harmo:hasChannelType harmo:mqtt .
+
+                BIND(STRAFTER(STR(?this), "#") AS ?localName)
+                BIND(REPLACE(?localName, "^.*:", "") AS ?last)
+                BIND(REPLACE(?localName, ":[^:]+$", "") AS ?withoutLast)
+                BIND(REPLACE(?withoutLast, "^.*:", "") AS ?penultimate)
+                BIND(REPLACE(?withoutLast, ":[^:]+$", "") AS ?head)
+                BIND(
+                    IF(?last IN ("status", "forecasted", "measured"), "w",
+                    IF(?last IN ("setpoint", "command"), "r", ""))
+                    AS ?wr
+                )
+                BIND(
+                    IF(?wr != "",
+                        CONCAT(?head, ":", ?wr, ":", ?penultimate, ":", ?last),
+                        ?localName
+                    )
+                    AS ?finalName
+                )
+                BIND(REPLACE(?finalName, ":", "/") AS ?path)
+                BIND(CONCAT("harmo/", ?path) AS ?topic)
+                FILTER NOT EXISTS { ?this harmo:hasMQTTtopic ?any }
+            }
+        """ ;
+    ] .
+
+harmo:VolumeUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:Volume ;
+    sh:rule [
+        sh:prefixes harmo:HarmoPrefixes ;
+        a sh:SPARQLRule ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:M3 .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:VoltageUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:Voltage ;
+    sh:rule [
+        sh:prefixes harmo:HarmoPrefixes ;
+        a sh:SPARQLRule ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:V .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:StateOfChargeUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:StateOfCharge ;
+    sh:rule [
+        sh:prefixes harmo:HarmoPrefixes ;
+        a sh:SPARQLRule ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:PERCENT .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:RotationalSpeedUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:RotationalSpeed ;
+    sh:rule [
+        sh:prefixes harmo:HarmoPrefixes ;
+        a sh:SPARQLRule ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:RAD-PER-SEC .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:RelativeHumidityUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:RelativeHumidity ;
+    sh:rule [
+        sh:prefixes harmo:HarmoPrefixes ;
+        a sh:SPARQLRule ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:PERCENT .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:IrradianceUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:Irradiance ;
+    sh:rule [
+        sh:prefixes harmo:HarmoPrefixes ;
+        a sh:SPARQLRule ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:W-PER-M2 .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:ElectricCurrentUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:ElectricCurrent ;
+    sh:rule [
+        sh:prefixes harmo:HarmoPrefixes ;
+        a sh:SPARQLRule ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:A .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:DimensionlessRatioUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:DimensionlessRatio ;
+    sh:rule [
+        sh:prefixes harmo:HarmoPrefixes ;
+        a sh:SPARQLRule ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:PERCENT .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:CoefficientOfPerformanceUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:CoefficientOfPerformance ;
+    sh:rule [
+        sh:prefixes harmo:HarmoPrefixes ;
+        a sh:SPARQLRule ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:NUM .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:CelsiusTemperatureUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:CelsiusTemperature ;
+    sh:rule [
+        sh:prefixes harmo:HarmoPrefixes ;
+        a sh:SPARQLRule ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:DEG_C .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:ActiveEnergyUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:ActiveEnergy ;
+    sh:rule [
+        sh:prefixes harmo:HarmoPrefixes ;
+        a sh:SPARQLRule ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:KiloW-HR .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:PowerUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:Power ;
+    sh:rule [
+        sh:prefixes harmo:HarmoPrefixes ;
+        a sh:SPARQLRule ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:KiloW .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:CapacityUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:Capacity ;
+    sh:rule [
+        a sh:SPARQLRule ;
+        sh:prefixes harmo:HarmoPrefixes ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:KiloW .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:ActivePowerUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:ActivePower ;
+    sh:rule [
+        a sh:SPARQLRule ;
+        sh:prefixes harmo:HarmoPrefixes ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:KiloW .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:StatusUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:Status ;
+    sh:rule [
+        a sh:SPARQLRule ;
+        sh:prefixes harmo:HarmoPrefixes ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:PERCENT .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:RadianceUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:Radiance ;
+    sh:rule [
+        a sh:SPARQLRule ;
+        sh:prefixes harmo:HarmoPrefixes ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:W-PER-M2 .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:SpeedUnitRule
+    a sh:NodeShape ;
+    sh:targetClass qudtqk:Speed ;
+    sh:rule [
+        a sh:SPARQLRule ;
+        sh:prefixes harmo:HarmoPrefixes ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:M-PER-SEC .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:HeatingCapacityUnitRule
+    a sh:NodeShape ;
+    sh:targetClass harmo:HeatingCapacity ;
+    sh:rule [
+        a sh:SPARQLRule ;
+        sh:prefixes harmo:HarmoPrefixes ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:KiloW .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
+
+harmo:CoolingCapacityUnitRule
+    a sh:NodeShape ;
+    sh:targetClass harmo:CoolingCapacity ;
+    sh:rule [
+        a sh:SPARQLRule ;
+        sh:prefixes harmo:HarmoPrefixes ;
+        sh:construct """
+            CONSTRUCT {
+                $this brick:hasUnit unit:KiloW .
+            }
+            WHERE {
+                FILTER NOT EXISTS {
+                    $this brick:hasUnit ?u .
+                }
+            }
+        """ ;
+    ] .
